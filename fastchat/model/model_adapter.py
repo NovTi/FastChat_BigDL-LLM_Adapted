@@ -120,7 +120,13 @@ def register_model_adapter(cls):
 @cache
 def get_model_adapter(model_path: str) -> BaseModelAdapter:
     """Get a model adapter for a model_path."""
-    model_path_basename = os.path.basename(os.path.normpath(model_path))
+
+    if os.environ["bigdl_load"] == 'True':
+        # bigdl load one
+        model_path_basename = 'bigdl-' + os.path.basename(os.path.normpath(model_path))
+    else:
+        # original one
+        model_path_basename = os.path.basename(os.path.normpath(model_path))
 
     # Try the basename of model_path at first
     for adapter in model_adapters:
@@ -315,6 +321,7 @@ def load_model(
         device == "cpu"
         and kwargs["torch_dtype"] is torch.bfloat16
         and CPU_ISA is not None
+        and os.environ["bigdl_load"] != 'True'
     ):
         model = ipex.optimize(model, dtype=kwargs["torch_dtype"])
 
@@ -325,7 +332,7 @@ def load_model(
     ):
         model.to(device)
 
-    if device == "xpu":
+    if device == "xpu" and os.environ["bigdl_load"] != 'True':
         model = torch.xpu.optimize(model, dtype=kwargs["torch_dtype"], inplace=True)
 
     if debug:
@@ -529,6 +536,49 @@ def remove_parent_directory_name(model_path):
 
 
 peft_model_cache = {}
+
+
+class BigDLLLMAdapter(BaseModelAdapter):
+    "Model adapater for bigdl-llm backend models"
+
+    def match(self, model_path: str):
+        return "bigdl" in model_path
+
+    def load_model(self, model_path: str, from_pretrained_kwargs: dict):
+        revision = from_pretrained_kwargs.get("revision", "main")
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path, use_fast=False, revision=revision
+        )
+        from bigdl.llm.transformers import AutoModelForCausalLM
+
+        load_4bit =  os.environ["load_4bit"] == 'True'
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            load_in_4bit=load_4bit,
+            low_cpu_mem_usage=True,
+            use_cache=True,
+            **from_pretrained_kwargs,
+        )
+
+        return model, tokenizer
+
+    def get_default_conv_template(self, model_path: str) -> Conversation:
+        """Uses the conv template defined in environment var"""
+        import os
+
+        if "BIGDL_CONV_TEMPLATE" in os.environ:
+            try:
+                conv = get_conv_template(os.environ["BIGDL_CONV_TEMPLATE"])
+            except KeyError:
+                warnings.warn(
+                    f"The conversation template {os.environ['BIGDL_CONV_TEMPLATE']} does not exist, default to ONE_SHOT template"
+                )
+                conv = get_conv_template("one_shot")
+                return conv
+            else:
+                return conv
+        else:
+            return get_conv_template("one_shot")
 
 
 class PeftModelAdapter:
@@ -1829,6 +1879,7 @@ class PygmalionAdapter(BaseModelAdapter):
 
 # Note: the registration order matters.
 # The one registered earlier has a higher matching priority.
+register_model_adapter(BigDLLLMAdapter)
 register_model_adapter(PeftModelAdapter)
 register_model_adapter(VicunaAdapter)
 register_model_adapter(AiroborosAdapter)
