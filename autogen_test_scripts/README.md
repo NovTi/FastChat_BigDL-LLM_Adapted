@@ -57,21 +57,35 @@ python -m fastchat.serve.openai_api_server --host localhost --port 8000
 
 ```bash
 cd autogen_test
+
 # copy the test scripts from the cloned FastChat
 cp -r FastChat/autogen_test_scripts .
+
 # go to the test scripts folder
 cd autogen_test_scripts
-# test autogen examples
-python AutoGen_Test_Files
+
+# test autogen examples in the autogen_test_scripts folder
+# Example_Files: [math_chat_solve_equations.py, math_chat_solve_inequality.py, teaching.py, generate.py]
+python Example_Files
+
 # generate scripts | device choice: [xpu, cpu]
 # the prompts are in the line 74-78 in the generate file
 python -m generate --repo-id-or-model-path YOUR_MODEL_PATH --device YOUR_DEVICE
 ```
 
-#### 4. Notices
+## Notices
 
-**1.** AutoGen automatically stores the cache every time it gets an output. Considering there are four settings for each task (ipex xpu, ipen cpu, bigdl 4bit xpu, bigdl 4bit cpu), you can choose to add `use_cache=False` at line 203 of the PYTHON_PATH/site-packages/autogen/oai/completion.py. This exempts deleting the cache file every time before testing different settings.
+#### Deal with 0.1.14 AutoGen cache folder
+AutoGen automatically stores the cache every time it gets an output. Considering there are four settings for each task (ipex xpu, ipen cpu, bigdl 4bit xpu, bigdl 4bit cpu), you can choose to add `use_cache=False` at line 203 of the PYTHON_PATH/site-packages/autogen/oai/completion.py. This exempts deleting the cache file every time before testing different settings.
 
-**2.** The [generate script](generate.py) provides prompts for math solve equations and solve inequalities examples. They are in the line 74-78 of the file.
+#### Get Prompt
+Prompt can be got from file `FastChat/fastchat/serve/inference.py` line75 `prompt = params["prompt"]`. If you want to print the prompt, the results will be printed in the Terminal 2, it will not be shown in the Terminal 4 that used for running python files.
 
-**3.** These files were tested with `Llama-2-7b-chat-hf` model. If you wish to test with other models, please change the respective model name in the [Math Solve Equations](math_chat_solve_equations.py)(line 36 config_list), [Math Solve Inequalities](math_chat_solve_inequality.py)(line 36 config_list), and [Teaching](teaching.py)(line 35 config_list) files.
+#### File Illustration
+- The [math_chat_solve_equations.py](math_chat_solve_equations.py) is the AutoGen solve math equation example.
+- The [math_chat_solve_inequality.py](math_chat_solve_inequality.py) is the AutoGen solve math inequality example.
+- The [teaching.py](teaching.py) is the AutoGen teaching how to use Arxiv example.
+- The [generate.py](generate.py) provides prompts for math solve equations and solve inequalities examples. They are in the line 74-78 of the file.
+
+#### Verified Models
+These files were tested with `Llama-2-7b-chat-hf` model. If you wish to test with other models, please change the respective model name in the [Math Solve Equations](math_chat_solve_equations.py)(line 36 config_list), [Math Solve Inequalities](math_chat_solve_inequality.py)(line 36 config_list), and [Teaching](teaching.py)(line 35 config_list) files.
